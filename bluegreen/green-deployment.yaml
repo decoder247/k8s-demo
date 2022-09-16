@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: green-index
+data:
+  index.html: |
+    Hello from green!
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-green
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+      color: green
+  template:
+    metadata:
+      labels:
+        app: nginx
+        color: green
+    spec:
+      volumes:
+        - name: www-data
+          configMap:
+            name: green-index
+      containers:
+        - name: nginx
+          image: nginx:1.22
+          ports:
+            - containerPort: 80
+              name: web
+          volumeMounts:
+            - name: www-data
+              mountPath: /usr/share/nginx/html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-green
+spec:
+  selector:
+    app: nginx
+    color: green
+  ports:
+    - name: web
+      port: 80

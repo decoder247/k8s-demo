@@ -1,0 +1,80 @@
+# kubectl apply -f nginx-deployment.yaml
+# watch -n 2 kubectl get pods -n people-app -o wide
+# watch -n 2 kubectl get deployments -n people-app -o wide
+# kubectl run -it --image radial/busyboxplus:curl test -n peopleapp (DIFF NAMESPACE!!) --
+# kubectl delete deploy nginx-app
+# by default no firewalling, everything in cluster can comm w each other.
+
+apiVersion: apps/v1 # Namespace
+kind: Deployment # Type of deployment
+metadata:
+  labels:
+    app: nginx-app
+  name: nginx-app
+spec:
+  replicas: 3 # Number to reproduce
+  selector: # Select all pods w the following label
+    matchLabels:
+      app: nginx-app
+  template:
+    metadata:
+      labels:
+        app: nginx-app
+    spec:
+      # Other pods can reach this port from other ports
+      containers:
+        - name: nginx
+          image: nginx:1.23
+          ports:
+            - containerPort: 80 # default
+              name: nginx
+          volumeMounts:
+            - mountPath: /etc/nginx/
+              name: nginx-conf
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: nginx-config
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: '
+events {
+}
+http {
+   server {
+       listen 80;
+       location / {
+           return 200 "Hello I am green!";
+       }
+   }
+}'
+---
+# This thing lives in core k8s namespace, therefore v1
+# Default service is a clusterIP type
+# Can CURL name of svc! i.e. curl -X get http://nginx-svc, when inside a busybox test container, will look at s
+# kubectl get svc
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-app
+  labels:
+    app: nginx-app
+spec:
+  type: NodePort #ClusterIP
+  selector:
+    app: nginx-app
+  ports:
+    - protocol: TCP
+      targetPort: 80
+      port: 80 # docker run -p 80:80
+      nodePort: 30080
+# For smt with outside service, there should be a nodeport
+# Typically there should be a single ingress point, where all outside traffic comes in, easier to manage.
+

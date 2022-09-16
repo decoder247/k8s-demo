@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-app
+  labels:
+    app: airflow
+spec:
+  # Here we put the number of replicas for each pod
+  replicas: 1
+  # Here we put which pods will this deployment manage, according to their label
+  selector:
+    matchLabels:
+      app: airflow-pod
+  # Here we specify the pods. This follows the syntax of the pod especification
+  template:
+    metadata:
+      labels:
+        app: airflow-pod
+    spec:
+      containers:
+        - name: airflow
+          image: apache/airflow:2.1.4
+          command: ["airflow", "webserver", "-p", "8080"]
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+        # - name: airflow-initdb
+        #   image: apache/airflow:2.1.4
+        #   command: ["airflow", "initdb"]
+        #   envFrom:
+        #     - configMapRef:
+        #         name: airflow-config
+        # - name: redis
+        #   image: redis:latest
+---
+# Now we create a service that allows us to reach airflow from outside the Cluster network
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-service
+spec:
+  type: NodePort
+  selector:
+    app: airflow-pod
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30002
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airflow-config
+  labels:
+    app: airflow-pod
+data:
+  AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql://postgres:password@airflow-db:5432/postgresdb
+  #AIRFLOW__CORE__EXECUTOR: KubernetesExecutor
+  #AIRFLOW__WEBSERVER__AUTHENTICATE: "True"
+  #AIRFLOW__WEBSERVER__LOG_FETCH_TIMEOUT_SEC: "15"
+  #AIRFLOW__WEBSERVER__AUTH_BACKEND: airflow.contrib.auth.backends.password_auth
+  #AIRFLOW__API__AUTH_BACKEND: airflow.contrib.auth.backends.password_auth
+  # AIRFLOW__KUBERNETES__NAMESPACE: default
+  # AIRFLOW__KUBERNETES__WORKER_SERVICE_ACCOUNT_NAME: default
+  #AIRFLOW__KUBERNETES__IN_CLUSTER: "true"
+  #AIRFLOW__KUBERNETES__DAGS_IN_IMAGE: "true"
